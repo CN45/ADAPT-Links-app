@@ -1,0 +1,61 @@
+name: Suggest an ADAPT Link
+description: Suggest a resource for the ADAPT Links app.
+title: "Suggest link: "
+labels: ["link suggestion"]
+body:
+  - type: input
+    id: title
+    attributes:
+      label: Link title
+      description: What should this resource be called?
+      placeholder: OpenAI Cookbook
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: URL
+      description: Paste the full link.
+      placeholder: https://example.com
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Why is this useful?
+      description: Add a short description for the AI Team.
+      placeholder: This is useful because...
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - AI tools
+        - Prompting
+        - Coding assistants
+        - Automation
+        - Research and reading
+        - Policies and safety
+        - Team workflows
+        - Internal resources
+        - Tutorials and examples
+        - Demos and inspiration
+    validations:
+      required: true
+  - type: input
+    id: tags
+    attributes:
+      label: Tags
+      description: Add comma-separated keywords.
+      placeholder: docs, prompting, workflow
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Quick checks
+      options:
+        - label: This link is appropriate to share with the ADAPT AI Team.
+          required: true
+        - label: I checked that the URL opens.
+          required: true
