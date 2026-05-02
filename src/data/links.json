@@ -889,5 +889,18 @@
     "dateAdded": "2026-05-02",
     "recommended": false,
     "status": "active"
+  },
+  {
+    "title": "AI Agents in Education",
+    "url": "https://www.govtech.com/education/higher-ed/ai-agents-in-education-whats-working-and-whats-missing",
+    "description": "Suggested resource for the ADAPT AI Team.",
+    "category": "AI agents and reliability",
+    "tags": [
+      "suggested"
+    ],
+    "addedBy": "Cyndi",
+    "dateAdded": "2026-05-02",
+    "recommended": true,
+    "status": "active"
   }
 ]
