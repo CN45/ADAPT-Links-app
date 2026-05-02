@@ -1,6 +1,9 @@
 import {
+  ArrowLeft,
   ArrowUpRight,
   Clipboard,
+  ClipboardCheck,
+  FileJson,
   Github,
   Search,
   SlidersHorizontal,
@@ -11,7 +14,8 @@ import rawLinks from "./data/links.json";
 import type { ResourceLink, SortKey } from "./types";
 
 const links = rawLinks as ResourceLink[];
-const categories = ["All", ...Array.from(new Set(links.map((link) => link.category))).sort()];
+const linkCategories = Array.from(new Set(links.map((link) => link.category))).sort();
+const categories = ["All", ...linkCategories];
 
 const sortLabels: Record<SortKey, string> = {
   recommended: "Recommended",
@@ -23,12 +27,109 @@ const sortLabels: Record<SortKey, string> = {
 const suggestionIssueUrl =
   "https://github.com/CN45/ADAPT-Links-app/issues/new?template=suggest-link.yml&title=Suggest%20an%20ADAPT%20Link";
 
+const today = new Date().toISOString().slice(0, 10);
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",
     year: "numeric"
   }).format(new Date(`${value}T00:00:00`));
+}
+
+function cleanUrl(value: string) {
+  return value.replace(/[),.;\]]+$/g, "");
+}
+
+function titleFromUrl(url: string) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    return host
+      .split(".")[0]
+      .replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  } catch {
+    return "Suggested Link";
+  }
+}
+
+function parseIssueSection(text: string, heading: string) {
+  const pattern = new RegExp(`### ${heading}\\s+([\\s\\S]*?)(?=\\n### |$)`, "i");
+  return text.match(pattern)?.[1].trim() ?? "";
+}
+
+function parseTags(value: string) {
+  return value
+    .split(/[,;\n]/)
+    .map((tag) => tag.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function parseImportedLinks(
+  text: string,
+  defaultCategory: string,
+  defaultTags: string[],
+  addedBy: string,
+  dateAdded: string,
+  recommended: boolean
+) {
+  const issueTitle = parseIssueSection(text, "Link title");
+  const issueUrl = parseIssueSection(text, "URL");
+  const issueDescription = parseIssueSection(text, "Why is this useful\\?");
+  const issueCategory = parseIssueSection(text, "Category");
+  const issueTags = parseIssueSection(text, "Tags");
+
+  if (issueUrl) {
+    return [
+      {
+        title: issueTitle || titleFromUrl(issueUrl),
+        url: cleanUrl(issueUrl),
+        description: issueDescription || "Suggested resource for the ADAPT AI Team.",
+        category: issueCategory || defaultCategory,
+        tags: parseTags(issueTags).length > 0 ? parseTags(issueTags) : defaultTags,
+        addedBy,
+        dateAdded,
+        recommended,
+        status: "active" as const
+      }
+    ];
+  }
+
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const urlPattern = /https?:\/\/[^\s)]+/g;
+  const imported: ResourceLink[] = [];
+
+  lines.forEach((line, index) => {
+    const urls = line.match(urlPattern) ?? [];
+
+    urls.forEach((rawUrl) => {
+      const url = cleanUrl(rawUrl);
+      const lineWithoutUrl = line.replace(rawUrl, "").replace(/^[-:–—\s]+|[-:–—\s]+$/g, "");
+      const previousLine = [...lines]
+        .slice(0, index)
+        .reverse()
+        .find((candidate) => !candidate.match(urlPattern) && candidate.length > 3);
+
+      imported.push({
+        title: lineWithoutUrl || previousLine || titleFromUrl(url),
+        url,
+        description: lineWithoutUrl
+          ? `Suggested resource: ${lineWithoutUrl}.`
+          : "Suggested resource for the ADAPT AI Team.",
+        category: defaultCategory,
+        tags: defaultTags,
+        addedBy,
+        dateAdded,
+        recommended,
+        status: "active"
+      });
+    });
+  });
+
+  return imported;
 }
 
 function sortLinks(items: ResourceLink[], sortKey: SortKey) {
@@ -46,6 +147,7 @@ function sortLinks(items: ResourceLink[], sortKey: SortKey) {
 }
 
 export function App() {
+  const [route, setRoute] = useState(window.location.hash === "#/admin" ? "admin" : "home");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [sortKey, setSortKey] = useState<SortKey>("recommended");
@@ -80,6 +182,20 @@ export function App() {
     window.setTimeout(() => setCopiedUrl(""), 1400);
   };
 
+  const goHome = () => {
+    window.location.hash = "";
+    setRoute("home");
+  };
+
+  const goAdmin = () => {
+    window.location.hash = "/admin";
+    setRoute("admin");
+  };
+
+  if (route === "admin") {
+    return <ImportPage onBack={goHome} />;
+  }
+
   return (
     <main className="app-shell">
       <section className="topbar" aria-label="ADAPT Links overview">
@@ -91,10 +207,16 @@ export function App() {
             workflows, and examples worth keeping close.
           </p>
         </div>
-        <a className="suggest-button" href={suggestionIssueUrl} target="_blank" rel="noreferrer">
-          <Github aria-hidden="true" size={18} />
-          Suggest Link
-        </a>
+        <div className="topbar-actions">
+          <button className="secondary-button" type="button" onClick={goAdmin}>
+            <FileJson aria-hidden="true" size={18} />
+            Import
+          </button>
+          <a className="suggest-button" href={suggestionIssueUrl} target="_blank" rel="noreferrer">
+            <Github aria-hidden="true" size={18} />
+            Suggest Link
+          </a>
+        </div>
       </section>
 
       <section className="controls" aria-label="Filter and search links">
@@ -186,6 +308,126 @@ export function App() {
           <p>Try a different search term or category.</p>
         </section>
       )}
+    </main>
+  );
+}
+
+function ImportPage({ onBack }: { onBack: () => void }) {
+  const [sourceText, setSourceText] = useState("");
+  const [defaultCategory, setDefaultCategory] = useState(linkCategories[0] ?? "Research and reading");
+  const [tagsText, setTagsText] = useState("suggested");
+  const [addedBy, setAddedBy] = useState("Cyndi");
+  const [dateAdded, setDateAdded] = useState(today);
+  const [recommended, setRecommended] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const parsedLinks = useMemo(
+    () =>
+      parseImportedLinks(
+        sourceText,
+        defaultCategory,
+        parseTags(tagsText),
+        addedBy,
+        dateAdded,
+        recommended
+      ),
+    [addedBy, dateAdded, defaultCategory, recommended, sourceText, tagsText]
+  );
+  const jsonOutput = JSON.stringify(parsedLinks, null, 2).slice(1, -1).trim();
+
+  const copyJson = async () => {
+    await navigator.clipboard.writeText(jsonOutput);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  };
+
+  return (
+    <main className="app-shell">
+      <section className="admin-header">
+        <button className="back-button" type="button" onClick={onBack}>
+          <ArrowLeft aria-hidden="true" size={18} />
+          Links
+        </button>
+        <div>
+          <p className="eyebrow">ADAPT AI Team</p>
+          <h1>Import Links</h1>
+          <p className="intro">
+            Paste a GitHub suggestion or a block of links, then copy the generated JSON into
+            `src/data/links.json`.
+          </p>
+        </div>
+      </section>
+
+      <section className="import-layout">
+        <div className="import-panel">
+          <label className="field-label" htmlFor="sourceText">
+            Paste links or issue text
+          </label>
+          <textarea
+            id="sourceText"
+            className="import-textarea"
+            value={sourceText}
+            onChange={(event) => setSourceText(event.target.value)}
+            placeholder="### Link title&#10;Careful Adoption of Agentic AI Services&#10;&#10;### URL&#10;https://example.com"
+          />
+
+          <div className="import-controls">
+            <label className="field-label">
+              Category
+              <select value={defaultCategory} onChange={(event) => setDefaultCategory(event.target.value)}>
+                {linkCategories.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field-label">
+              Tags
+              <input value={tagsText} onChange={(event) => setTagsText(event.target.value)} />
+            </label>
+            <label className="field-label">
+              Added by
+              <input value={addedBy} onChange={(event) => setAddedBy(event.target.value)} />
+            </label>
+            <label className="field-label">
+              Date added
+              <input
+                type="date"
+                value={dateAdded}
+                onChange={(event) => setDateAdded(event.target.value)}
+              />
+            </label>
+          </div>
+
+          <label className="checkbox-control">
+            <input
+              type="checkbox"
+              checked={recommended}
+              onChange={(event) => setRecommended(event.target.checked)}
+            />
+            Recommended
+          </label>
+        </div>
+
+        <div className="import-panel output-panel">
+          <div className="output-header">
+            <div>
+              <p className="eyebrow">{parsedLinks.length} parsed</p>
+              <h2>JSON Output</h2>
+            </div>
+            <button className="secondary-button" type="button" onClick={copyJson} disabled={!jsonOutput}>
+              {copied ? (
+                <ClipboardCheck aria-hidden="true" size={18} />
+              ) : (
+                <Clipboard aria-hidden="true" size={18} />
+              )}
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+          <pre className="json-output">{jsonOutput || "[]"}</pre>
+        </div>
+      </section>
     </main>
   );
 }
