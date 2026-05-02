@@ -3,7 +3,6 @@ import {
   ArrowUpRight,
   Clipboard,
   ClipboardCheck,
-  FileJson,
   Github,
   Search,
   SlidersHorizontal,
@@ -187,11 +186,6 @@ export function App() {
     setRoute("home");
   };
 
-  const goAdmin = () => {
-    window.location.hash = "/admin";
-    setRoute("admin");
-  };
-
   if (route === "admin") {
     return <ImportPage onBack={goHome} />;
   }
@@ -207,16 +201,10 @@ export function App() {
             workflows, and examples worth keeping close.
           </p>
         </div>
-        <div className="topbar-actions">
-          <button className="secondary-button" type="button" onClick={goAdmin}>
-            <FileJson aria-hidden="true" size={18} />
-            Import
-          </button>
-          <a className="suggest-button" href={suggestionIssueUrl} target="_blank" rel="noreferrer">
-            <Github aria-hidden="true" size={18} />
-            Suggest Link
-          </a>
-        </div>
+        <a className="suggest-button" href={suggestionIssueUrl} target="_blank" rel="noreferrer">
+          <Github aria-hidden="true" size={18} />
+          Suggest Link
+        </a>
       </section>
 
       <section className="controls" aria-label="Filter and search links">
