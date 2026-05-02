@@ -878,5 +878,16 @@
     "dateAdded": "2026-04-03",
     "recommended": true,
     "status": "active"
+  },
+  {
+    "title": "Careful Adoption of Agentic AI Services",
+    "url": "https://www.cyber.gov.au/business-government/secure-design/artificial-intelligence/careful-adoption-of-agentic-ai-services",
+    "description": "Guidance from federal officials alongside CISA regarding the usage of agentic AI.",
+    "category": "Research and reading",
+    "tags": ["doc", "agentic-ai", "guidance"],
+    "addedBy": "nickyfr33ze",
+    "dateAdded": "2026-05-02",
+    "recommended": false,
+    "status": "active"
   }
 ]
